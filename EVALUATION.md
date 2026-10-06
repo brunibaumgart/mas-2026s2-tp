@@ -91,9 +91,9 @@ Así una falla queda ubicada en una etapa ("no recuperó la tabla" no es lo mism
 
 Proyecto: `LANGSMITH_PROJECT` del `.env`. Cada ejecución aparece como `ingesta:<archivo>` o `analista: <pregunta>`, con un span por nodo.
 
-1. **Multitabla `answered` con citas** (pregunta 3): `understand → retrieve → select → codegen → execute → verify → answer`; en `execute` se ven las celdas citadas de las dos tablas. — *link pendiente*
-2. **`partial` con verificador** (pregunta 7): la selección marca "promedio nacional" como no respondible, el código solo calcula la otra parte y el verificador lo aprueba. — *link pendiente*
-3. **`cannot_answer` sin código** (pregunta 9), o una con reintento de código o revisión humana si aparece en las corridas. — *link pendiente*
+1. **Multitabla `answered` con citas** (pregunta 3): `understand → retrieve → select → codegen → execute → verify → answer`; en `execute` se ven las celdas citadas de las dos tablas. — [traza](https://smith.langchain.com/public/a0808d5b-9915-4f09-9307-88430500f9d6/r)
+2. **`partial` con verificador** (pregunta 7): la selección marca "promedio nacional" como no respondible, el código solo calcula la otra parte y el verificador lo aprueba. — [traza](https://smith.langchain.com/public/57d9c120-b729-478f-ba5a-38821f9b5390/r)
+3. **`cannot_answer` sin código** (pregunta 9), o una con reintento de código o revisión humana si aparece en las corridas. — [traza](https://smith.langchain.com/public/9d6860ed-886a-4b60-b378-603b316c702e/r)
 
 > Para compartirlas: en LangSmith, abrir la traza → *Share* → copiar el link público, o adjuntar capturas en `docs/`.
 
