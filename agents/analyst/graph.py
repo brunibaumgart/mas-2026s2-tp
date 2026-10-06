@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from functools import partial
 
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.graph import END, START, StateGraph
 
 from agents.analyst import nodes
@@ -51,6 +53,18 @@ def build_graph(deps: AnalystDeps, checkpointer=None):
     )
     g.add_edge("answer", END)
     return g.compile(checkpointer=checkpointer)
+
+
+# Tipos propios que el checkpointer puede guardar y restaurar (salidas estructuradas del estado).
+CHECKPOINT_TYPES = [
+    ("agents.analyst.schemas", name)
+    for name in ("QueryPlan", "QuestionPart", "PartSelection", "TableUse", "Verdict", "Violation")
+]
+
+
+def memory_checkpointer() -> InMemorySaver:
+    """Checkpointer en memoria del proceso: guarda el estado de cada conversación (thread_id)."""
+    return InMemorySaver(serde=JsonPlusSerializer(allowed_msgpack_modules=CHECKPOINT_TYPES))
 
 
 def default_deps() -> AnalystDeps:

@@ -1,10 +1,9 @@
 """Tests de los distintivos del Analista: citas, verificador, híbrido, memoria, revisión humana,
 gráfico y ruteo de modelos. Todos con dobles: no gastan presupuesto del proxy."""
-from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
 from agents.analyst import logic, retrieval
-from agents.analyst.graph import build_graph, run_config
+from agents.analyst.graph import build_graph, memory_checkpointer, run_config
 from agents.analyst.schemas import GeneratedCode, QueryPlan, Selection, Verdict, Violation
 from services.sandbox import run_code
 from tests.test_analyst import EXP, PER_CAPITA_CODE, POB, ScriptedLLM, deps, part, plan, run, use  # noqa: F401
@@ -154,7 +153,7 @@ def test_memoria_del_hilo_con_checkpointer(deps):
         Selection: [PER_CAPITA_SEL, PER_CAPITA_SEL],
         GeneratedCode: [GeneratedCode(code=PER_CAPITA_CODE), GeneratedCode(code=PER_CAPITA_CODE)],
     })
-    graph = build_graph(deps(llm), checkpointer=InMemorySaver())
+    graph = build_graph(deps(llm), checkpointer=memory_checkpointer())
     config = run_config("¿?", thread_id="hilo-1")
     graph.invoke({"question": "¿Per cápita Litoral 2023?"}, config=config)
     state = graph.invoke({"question": "¿y en 2022?"}, config=config)
@@ -176,7 +175,7 @@ def test_sin_checkpointer_no_hay_memoria(deps):
 
 # ------------------------------------------------------------------ revisión humana
 def _review_graph(deps, llm):
-    return build_graph(deps(llm), checkpointer=InMemorySaver())
+    return build_graph(deps(llm), checkpointer=memory_checkpointer())
 
 
 def test_revision_humana_pausa_y_aprueba(deps):
