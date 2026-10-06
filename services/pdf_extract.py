@@ -33,6 +33,8 @@ class Table:
     columns: list[str]
     rows: list[list[Cell]]
     header_group: str | None = None
+    # Un bbox (x0, y0, x1, y1) por cada página de ``pages``.
+    bboxes: list[tuple[float, float, float, float]] = field(default_factory=list)
 
     def to_dataframe(self):
         import pandas as pd
@@ -179,6 +181,7 @@ def extract_tables(pdf_path: str | Path) -> ExtractionResult:
                 if is_continuation:
                     body = raw[1:] if header == prev[0].columns else raw
                     prev[0].pages.append(page_no)
+                    prev[0].bboxes.append(tuple(t.bbox))
                     prev[1].extend([_clean(c) for c in r] for r in body)
                     continue
 
@@ -190,6 +193,7 @@ def extract_tables(pdf_path: str | Path) -> ExtractionResult:
                     columns=columns,
                     rows=[],
                     header_group=group,
+                    bboxes=[tuple(t.bbox)],
                 )
                 pending.append((table, [[_clean(c) for c in r] for r in raw[n_header:]]))
 

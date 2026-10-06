@@ -61,6 +61,13 @@ def test_ventas_mensuales_unidas_en_una_tabla(memoria):
     assert sum(dic_2024[2:]) == 12033.0
 
 
+def test_cada_parte_guarda_su_bbox(memoria, anuario):
+    for t in memoria.tables + anuario.tables:
+        assert len(t.bboxes) == len(t.pages)
+    ventas = memoria.get("Cuadro 3")
+    assert ventas.bboxes[1][1] < 100  # la continuación arranca arriba de la pág. 2
+
+
 def test_cuadro2_gastos(memoria):
     t = memoria.get("Cuadro 2")
     assert t.pages == [2]
