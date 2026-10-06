@@ -24,8 +24,19 @@ def _proxy_kwargs() -> dict:
 
 
 def get_chat_model(temperature: float = 0) -> ChatOpenAI:
+    """Modelo principal (LLM_MODEL): tareas donde un error es caro (selección, código, verificación)."""
     load_dotenv()
     return ChatOpenAI(model=_env("LLM_MODEL"), temperature=temperature, **_proxy_kwargs())
+
+
+def get_fast_chat_model(temperature: float = 0) -> ChatOpenAI:
+    """Modelo rápido (LLM_MODEL_FAST): reescribir la consulta y redactar la respuesta.
+
+    Si LLM_MODEL_FAST no está definido, usa LLM_MODEL.
+    """
+    load_dotenv()
+    model = os.environ.get("LLM_MODEL_FAST") or _env("LLM_MODEL")
+    return ChatOpenAI(model=model, temperature=temperature, **_proxy_kwargs())
 
 
 def get_embeddings() -> OpenAIEmbeddings:

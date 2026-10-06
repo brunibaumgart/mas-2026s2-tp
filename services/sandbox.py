@@ -22,6 +22,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 DEFAULT_TIMEOUT = 20
+CHART_FILE = "chart.png"
+MAX_CHART_BYTES = 2_000_000
+
+# Solo si el código usa matplotlib: cargarlo cuesta ~1 s y abre fuentes y librerías nativas.
+MATPLOTLIB_PRELOAD = """import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot
+"""
 
 PRELUDE = r'''
 import os as _os
@@ -32,7 +40,7 @@ import json, math  # noqa: E401
 import numpy
 import pandas
 import pyarrow.parquet
-
+{matplotlib}
 def _sandbox():
     real = _os.path.realpath
     workdir = real(_os.getcwd())
@@ -86,6 +94,7 @@ class ExecResult:
     stderr: str
     returncode: int | None
     timed_out: bool = False
+    chart: bytes | None = None
 
     @property
     def ok(self) -> bool:
@@ -96,7 +105,8 @@ def _limit_cpu(seconds: int):
     def apply():
         import resource
 
-        resource.setrlimit(resource.RLIMIT_CPU, (seconds, seconds))
+        # Límite blando: SIGXCPU. El duro queda 1 s después: si se alcanza, Linux manda SIGKILL.
+        resource.setrlimit(resource.RLIMIT_CPU, (seconds, seconds + 1))
 
     return apply
 
@@ -109,7 +119,10 @@ def run_code(
         workdir = Path(tmp)
         for name, src in (files or {}).items():
             shutil.copy(src, workdir / name)
-        (workdir / "main.py").write_text(PRELUDE + "\n" + code, encoding="utf-8")
+        prelude = PRELUDE.replace(
+            "{matplotlib}", MATPLOTLIB_PRELOAD if "matplotlib" in code else ""
+        )
+        (workdir / "main.py").write_text(prelude + "\n" + code, encoding="utf-8")
         env = {"PATH": "/usr/bin:/bin", "HOME": tmp, "TMPDIR": tmp, "MPLCONFIGDIR": tmp}
         try:
             proc = subprocess.run(
@@ -123,9 +136,18 @@ def run_code(
             )
         except subprocess.TimeoutExpired as exc:
             return _timeout(_text(exc.stdout), _text(exc.stderr), timeout)
-        if proc.returncode == -signal.SIGXCPU:
+        if proc.returncode in (-signal.SIGXCPU, -signal.SIGKILL):
             return _timeout(proc.stdout, proc.stderr, timeout)
-        return ExecResult(proc.stdout, proc.stderr, proc.returncode)
+        return ExecResult(proc.stdout, proc.stderr, proc.returncode, chart=_read_chart(workdir))
+
+
+def _read_chart(workdir: Path) -> bytes | None:
+    """El gráfico que el programa haya guardado en chart.png, si es un PNG de tamaño razonable."""
+    path = workdir / CHART_FILE
+    if not path.is_file() or path.stat().st_size > MAX_CHART_BYTES:
+        return None
+    data = path.read_bytes()
+    return data if data.startswith(b"\x89PNG") else None
 
 
 def _timeout(stdout: str, stderr: str, timeout: int) -> ExecResult:

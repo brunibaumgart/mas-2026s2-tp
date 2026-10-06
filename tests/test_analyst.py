@@ -13,6 +13,8 @@ from agents.analyst.schemas import (
     QuestionPart,
     Selection,
     TableUse,
+    Verdict,
+    Violation,
 )
 from tests.fakes import FakeEmbeddings, FakeIndex
 
@@ -34,6 +36,8 @@ class ScriptedLLM:
         class _Structured:
             def invoke(self, messages):
                 llm.calls.append((schema, messages[-1][1]))
+                if schema is Verdict and not llm.responses.get(Verdict):
+                    return Verdict(ok=True, violations=[])  # verificador conforme por defecto
                 return llm.responses[schema].pop(0)
 
         return _Structured()
@@ -48,6 +52,7 @@ class ScriptedLLM:
 
 def plan(*questions):
     return QueryPlan(
+        standalone_question=questions[0],
         rewritten_query="exportaciones población región",
         entities=[], metrics=[], periods=[], operations=[],
         parts=[QuestionPart(id=f"p{i}", question=q) for i, q in enumerate(questions, 1)],
@@ -71,8 +76,13 @@ import pandas as pd
 exp = pd.read_parquet('exp.parquet').set_index('Región')
 pob = pd.read_parquet('pob.parquet').set_index('Región')
 v = exp.loc['Litoral', '2023'] * 1e6 / (pob.loc['Litoral', '2023'] * 1e3)
+cells = [
+    {"table": "exp.parquet", "row": "Litoral", "column": "2023", "value": float(exp.loc['Litoral', '2023'])},
+    {"table": "pob.parquet", "row": "Litoral", "column": "2023", "value": float(pob.loc['Litoral', '2023'])},
+]
 print(json.dumps({"parts": [{"part_id": "p1", "result": round(float(v), 2),
-                  "unit": "USD por habitante", "explanation": "exportaciones / población"}]}))
+                  "unit": "USD por habitante", "explanation": "exportaciones / población",
+                  "cells": cells}]}))
 """
 
 

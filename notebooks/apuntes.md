@@ -71,7 +71,7 @@ Qué quedarse:
 
 - El patrón se repite en el resto de la materia: cliente → proxy → modelo.
 - Un fallo de auth se ve como excepción de autenticación, no como “el modelo contestó mal”.
-- Los notebooks originales apuntaban a `../../.env`; en este repo el `.env` está **junto** a los `.ipynb` (`Path(".env")`).
+- Los notebooks originales apuntaban a `../../.env`; en este repo el `.env` está en la raíz del repo, un nivel arriba de los `.ipynb` (`Path("../.env")`).
 
 ---
 

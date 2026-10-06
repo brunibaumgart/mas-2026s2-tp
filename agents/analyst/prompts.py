@@ -15,7 +15,12 @@ UNDERSTAND_SYSTEM = """Analizás preguntas sobre datos que están en tablas de i
 - Separá la pregunta en partes si pide cosas distintas. Ejemplo: "¿Qué región tuvo la tasa \
 más alta en 2023 y por cuánto superó al promedio nacional?" → p1 "¿Qué región tuvo la tasa \
 más alta en 2023 y cuál fue?", p2 "¿Por cuánto superó esa tasa al promedio nacional de 2023?".
-- Si la pregunta pide una sola cosa (aunque sea para varios años), usá una sola parte."""
+- Si la pregunta pide una sola cosa (aunque sea para varios años), usá una sola parte.
+- Puede haber conversación previa. Si la pregunta nueva depende de ella ("¿y en 2023?", \
+"¿y para esa región?", "¿cuánto es eso en porcentaje?"), escribí en standalone_question la \
+pregunta completa, tomando de la conversación solo lo necesario (métrica, entidad, período). \
+Si no depende, copiala tal cual. La consulta reescrita y las partes se arman sobre la pregunta \
+autocontenida. Nunca copies números de respuestas anteriores a la pregunta."""
 
 SELECT_SYSTEM = """Decidís qué tablas hacen falta para responder cada parte de una pregunta. \
 Solo podés usar las tablas candidatas: nunca conocimiento general, fuentes externas ni \
@@ -64,13 +69,45 @@ unidad de la tabla (p. ej. "miles de $").
 - Librerías disponibles: pandas, numpy, json, math y la biblioteca estándar.
 - Si al calcular descubrís que falta un dato, poné "result": null y "missing": "<qué falta>" \
 en esa parte.
+- Si la pregunta pide una proporción o un porcentaje, devolvé porcentajes (21.75, no 0.2175) \
+con unit "%".
 - La ÚLTIMA línea impresa tiene que ser un único JSON en una sola línea:
   print(json.dumps({"parts": [{"part_id": "p1", "result": ..., "unit": "...", \
-"explanation": "..."}]}, ensure_ascii=False))
+"explanation": "...", "cells": [...]}]}, ensure_ascii=False))
   - result: número, string o un dict/list chico con los valores, redondeados a 2 decimales.
   - unit: unidad del resultado (p. ej. "%", "miles de $", "USD por habitante").
   - explanation: una oración con el cálculo y las conversiones realizadas.
-- Convertí los tipos de numpy a float/int de Python antes de json.dumps."""
+  - cells: TODAS las celdas de las tablas que usó el cálculo, para poder verificarlas. Cada una \
+es {"table": "<archivo>.parquet", "row": <etiqueta de fila>, "column": "<columna>", \
+"value": <valor>}. "row" es la etiqueta de la fila tal como está en la tabla, o una lista de \
+etiquetas si la fila se identifica con más de una columna (p. ej. ["2023", "Diciembre"]). \
+"value" es el valor original de la celda, sin redondear ni convertir. Armá la lista en el \
+código a partir del DataFrame (no la escribas a mano); si usaste una columna entera, citá \
+todas sus celdas.
+- Convertí los tipos de numpy a float/int/str de Python antes de json.dumps.
+- Gráfico: si el resultado de alguna parte es una serie (varios años, meses, regiones o \
+categorías), guardá además un gráfico simple con matplotlib: import matplotlib.pyplot as \
+plt; ...; plt.title('<qué muestra> (<unidad>)'); plt.savefig('chart.png', dpi=120, \
+bbox_inches='tight'). Un solo gráfico, sin plt.show(). Si todos los resultados son un único \
+número, no hagas gráfico."""
+
+VERIFY_SYSTEM = """Sos un verificador. No resolvés la pregunta: revisás si un programa que ya \
+se ejecutó calcula lo que pide cada parte respetando las reglas. Revisá solo las partes \
+listadas en "Partes a calcular".
+
+Reportá una violación SOLO si es clara y concreta:
+- kind "calculo" (se corrige reescribiendo el código): calcula otra cosa que la que pide la \
+parte; usa filas, columnas o años distintos de los pedidos; aproxima un dato que falta \
+(promediar las regiones para obtener un "promedio nacional", usar el año más cercano, \
+interpolar o extrapolar); usa números escritos a mano en lugar de valores de las tablas; hace \
+una conversión que necesita datos externos (tipo de cambio, inflación); o calcula una parte \
+marcada como NO respondible.
+- kind "dato_faltante" (no se puede corregir): la parte necesita un dato que no está en \
+ninguna de las tablas disponibles.
+
+No reportes estilo, redondeo, nombres de variables, formato del JSON ni conversiones \
+permitidas (cambio de escala, % ↔ fracción, sumar meses cuando están todos, combinar tablas \
+con las mismas entidades y período). Si todo está bien, devolvé ok=true y violations vacío."""
 
 ANSWER_SYSTEM = """Redactás la respuesta final para el usuario, en español, a partir de \
 resultados ya calculados. No calcules nada nuevo ni uses conocimiento externo.
@@ -191,4 +228,51 @@ def answer_user_prompt(
     )
     if status != "answered":
         text += f"\n\nTablas relacionadas encontradas:\n{_json(related)}"
+    return text
+
+
+def understand_user_prompt(question: str, history: list[dict]) -> str:
+    if not history:
+        return question
+    turns = "\n".join(
+        f"- Pregunta: {h.get('question')}\n  Interpretada como: {h.get('standalone')}\n"
+        f"  Tablas usadas: {', '.join(h.get('tables') or []) or 'ninguna'}\n"
+        f"  Estado: {h.get('status')}"
+        for h in history
+    )
+    return f"Conversación previa (la más reciente al final):\n{turns}\n\nPregunta nueva: {question}"
+
+
+def verify_user_prompt(
+    question: str,
+    plan: QueryPlan,
+    selection: list[PartSelection],
+    tables: list[str],
+    code: str,
+    result: dict,
+) -> str:
+    questions = {p.id: p.question for p in plan.parts}
+    to_check = [
+        f"- {s.part_id}: {questions.get(s.part_id, '')}"
+        + (f" (conversiones permitidas: {s.conversions})" if s.conversions else "")
+        for s in selection
+        if s.answerable
+    ]
+    skipped = [
+        f"- {s.part_id}: {questions.get(s.part_id, '')} (falta: {s.missing})"
+        for s in selection
+        if not s.answerable
+    ]
+    slim = {
+        "parts": [
+            {k: v for k, v in e.items() if k != "cells"}
+            for e in (result or {}).get("parts", [])
+            if isinstance(e, dict)
+        ]
+    }
+    text = f"Pregunta: {question}\n\nPartes a calcular:\n" + "\n".join(to_check)
+    if skipped:
+        text += "\n\nPartes NO respondibles (no se deben calcular):\n" + "\n".join(skipped)
+    text += "\n\nTablas disponibles:\n\n" + "\n\n".join(tables)
+    text += f"\n\nCódigo ejecutado:\n{code}\n\nResultado (JSON, sin las celdas citadas):\n{_json(slim)}"
     return text

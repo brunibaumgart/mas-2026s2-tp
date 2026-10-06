@@ -1,4 +1,6 @@
 """Schemas Pydantic de las salidas estructuradas del Analista."""
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -8,6 +10,11 @@ class QuestionPart(BaseModel):
 
 
 class QueryPlan(BaseModel):
+    standalone_question: str = Field(
+        description="La pregunta reescrita para que se entienda sin la conversación previa "
+        "(resolviendo 'y en 2023?', 'esa región', etc.). Si no hay conversación previa o ya es "
+        "autocontenida, copiala tal cual."
+    )
     rewritten_query: str = Field(
         description="Consulta reescrita para búsqueda semántica de tablas: métricas, entidades "
         "y períodos explícitos, sin palabras de relleno."
@@ -53,3 +60,18 @@ class Selection(BaseModel):
 
 class GeneratedCode(BaseModel):
     code: str = Field(description="Programa Python completo, sin bloques markdown.")
+
+
+class Violation(BaseModel):
+    part_id: str = Field(description="id de la parte con el problema.")
+    kind: Literal["calculo", "dato_faltante"] = Field(
+        description="'calculo': el programa calcula mal o aproxima algo que no debe (se puede "
+        "corregir reescribiendo el código). 'dato_faltante': la parte necesita un dato que no "
+        "está en las tablas (no se puede corregir)."
+    )
+    detail: str = Field(description="Qué está mal, en una o dos oraciones, citando el código.")
+
+
+class Verdict(BaseModel):
+    ok: bool = Field(description="true si no hay ninguna violación.")
+    violations: list[Violation] = Field(description="Violaciones encontradas (vacío si ok).")

@@ -9,7 +9,9 @@
   - **Valores:** los números del JSON que imprime el código generado contra los esperados (tolerancia 0,1 % relativa o 0,015 absoluta; se acepta fracción en lugar de porcentaje) y textos obligatorios ("Diciembre", "Desierto"). En `cannot_answer` se exige que no haya resultado numérico.
 - **Modelo:** `gpt-4.1` (temperatura 0) y `text-embedding-3-small`, vía el proxy de la universidad.
 
-## Resultados (corrida final)
+> **Versiones evaluadas.** Los resultados de abajo son del commit `15bd5ef`, antes de sumar el verificador, las citas por celda, la recuperación híbrida y el ruteo de modelos. Esos cambios tocan el prompt de código y el grafo, así que hay que volver a correr la evaluación: ver [Corrida con los distintivos](#corrida-con-los-distintivos).
+
+## Resultados (corrida final, commit 15bd5ef)
 
 | # | Pregunta | Estado esperado | Estado obtenido | Estado | Valores | Intentos de código | Tablas usadas |
 |---|---|---|---|:---:|:---:|:---:|---|
@@ -47,18 +49,40 @@ El set se corrió varias veces mientras se ajustaban los prompts. Se reportan to
 
 Antes de la corrida 1, la pregunta 7 se probó suelta y dio el estado correcto (`partial`) pero el código calculó igual un "promedio nacional" promediando regiones. Se corrigió pasándole al generador de código la lista explícita de partes que **no** debe calcular.
 
+## Corrida con los distintivos
+
+*Pendiente de correr.* Comandos:
+
+```bash
+python scripts/run_eval.py --repeats 3          # tabla por etapa en data/eval_results.md
+python scripts/langsmith_eval.py --repeats 3    # el mismo set como experimento en LangSmith
+```
+
+`run_eval.py` ahora reporta, por pregunta y sobre 3 corridas:
+
+- **Recuperación:** ¿las tablas esperadas (por archivo y rótulo) estaban entre las 5 candidatas?
+- **Selección:** ¿las tablas usadas son exactamente las esperadas (ninguna en `cannot_answer`)?
+- **Estado** y **valores**, con las mismas reglas que antes.
+- **Intentos de código** promedio y **observaciones del verificador**.
+
+Así una falla queda ubicada en una etapa ("no recuperó la tabla" no es lo mismo que "calculó mal"), y la variación entre corridas queda medida en lugar de anecdótica (la pregunta 6 pasó y falló con el mismo prompt).
+
+| # | Esperado | Obtenido | Recuperación | Selección | Estado | Valores | Correcta | Intentos (prom.) | Obs. del verificador |
+|---|---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| *pegar acá la tabla de `data/eval_results.md`* | | | | | | | | | |
+
 ## Trazas representativas de LangSmith
 
 Proyecto: `LANGSMITH_PROJECT` del `.env`. Cada ejecución aparece como `ingesta:<archivo>` o `analista: <pregunta>`, con un span por nodo.
 
-1. **Multitabla `answered`** (pregunta 3): `understand → retrieve → select → codegen → execute → answer`. — *link pendiente*
-2. **`partial`** (pregunta 7): la selección marca una parte como no respondible y el código solo calcula la otra. — *link pendiente*
-3. **Autocorrección / `cannot_answer`** (pregunta 1 de la corrida 1 con 2 intentos de código, o pregunta 9 sin codegen). — *link pendiente*
+1. **Multitabla `answered` con citas** (pregunta 3): `understand → retrieve → select → codegen → execute → verify → answer`; en `execute` se ven las celdas citadas de las dos tablas. — *link pendiente*
+2. **`partial` con verificador** (pregunta 7): la selección marca "promedio nacional" como no respondible, el código solo calcula la otra parte y el verificador lo aprueba. — *link pendiente*
+3. **`cannot_answer` sin código** (pregunta 9), o una con reintento de código o revisión humana si aparece en las corridas. — *link pendiente*
 
 > Para compartirlas: en LangSmith, abrir la traza → *Share* → copiar el link público, o adjuntar capturas en `docs/`.
 
 ## Limitaciones de la evaluación
 
 - **Set chico y conocido:** 11 preguntas sobre 2 PDFs propios. Los prompts se ajustaron mirando estas mismas preguntas, así que el 11/11 sobreestima el rendimiento en PDFs nuevos.
-- **No determinismo:** aun con temperatura 0, el modelo varía entre corridas (la pregunta 6 pasó y falló con el mismo prompt). Un resultado por pregunta no mide la tasa de acierto; habría que correr cada pregunta varias veces.
+- **No determinismo:** aun con temperatura 0, el modelo varía entre corridas (la pregunta 6 pasó y falló con el mismo prompt). Por eso la evaluación nueva corre cada pregunta varias veces; aun así, 3 corridas son pocas para estimar una tasa.
 - **Chequeo automático acotado:** se verifican números y estado, no la calidad de la redacción. La regla "en `cannot_answer` no se muestra ningún número" se verifica sobre el resultado del código, no sobre el texto final (que puede mencionar años o períodos).
