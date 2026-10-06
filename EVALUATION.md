@@ -51,7 +51,7 @@ Antes de la corrida 1, la pregunta 7 se probó suelta y dio el estado correcto (
 
 ## Corrida con los distintivos
 
-*Pendiente de correr.* Comandos:
+Corrida sobre el commit `ad88cf5`, 3 corridas por pregunta: **11/11 correctas en las 33 corridas**. Comandos:
 
 ```bash
 python scripts/run_eval.py --repeats 3          # tabla por etapa en data/eval_results.md
@@ -69,7 +69,23 @@ Así una falla queda ubicada en una etapa ("no recuperó la tabla" no es lo mism
 
 | # | Esperado | Obtenido | Recuperación | Selección | Estado | Valores | Correcta | Intentos (prom.) | Obs. del verificador |
 |---|---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| *pegar acá la tabla de `data/eval_results.md`* | | | | | | | | | |
+| 1 | answered | answered | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | 1.0 | 0 |
+| 2 | answered | answered | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | 1.0 | 0 |
+| 3 | answered | answered | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | 1.0 | 0 |
+| 4 | answered | answered | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | 1.3 | 0 |
+| 5 | answered | answered | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | 2.0 | 0 |
+| 6 | answered | answered | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | 1.0 | 0 |
+| 7 | partial | partial | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | 1.0 | 0 |
+| 8 | cannot_answer | cannot_answer | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | 0.0 | 0 |
+| 9 | cannot_answer | cannot_answer | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | 0.0 | 0 |
+| 10 | cannot_answer | cannot_answer | — | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | 0.0 | 0 |
+| 11 | cannot_answer | cannot_answer | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | ✅ 3/3 | 0.0 | 0 |
+
+- **Recuperación:** 30 / 30
+- **Selección:** 33 / 33
+- **Estado:** 33 / 33
+- **Correctas:** 33 / 33
+- **Preguntas correctas en todas las corridas:** 11 / 11 (33 corridas)
 
 ## Trazas representativas de LangSmith
 
